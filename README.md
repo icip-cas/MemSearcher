@@ -1,4 +1,4 @@
-# MemSearcher
+# [ACL 2026] MemSearcher
 Code release for paper "[MemSearcher: Training LLMs to Reason, Search and Manage Memory via End-to-End Reinforcement Learning](https://arxiv.org/abs/2511.02805)"
 
 ## 📷 Abstract
