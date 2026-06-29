@@ -1,0 +1,68 @@
+# -------------------------------
+# build-system
+# -------------------------------
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+# -------------------------------
+# project (PEP 621 metadata)
+# -------------------------------
+[project]
+name = "memsearcher"
+dynamic = ["version"]
+
+description = "MemSearcher: Training LLMs to Reason, Search and Manage Memory via End-to-End Reinforcement Learning"
+license = {text = "Apache-2.0"}
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.10"
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/icip-cas/MemSearcher"
+
+# -------------------------------
+# tool.ruff - Linting configuration
+# -------------------------------
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+isort = {known-first-party = ["verl", "memsearcher", "flashrag", "recurrent"]}
+select = [
+    "E",
+    "F",
+    "UP",
+    "B",
+    "I",
+    "G",
+]
+ignore = [
+    "F405", "F403",
+    "E731",
+    "B007",
+    "UP032",
+    "G004",
+    "UP045",
+    "UP035",
+]
+
+# -------------------------------
+# tool.setuptools
+# -------------------------------
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = "verl/version/version"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["verl*", "memsearcher*", "flashrag*", "recurrent*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json", "*.j2", "version/*", "**/*.yaml"]

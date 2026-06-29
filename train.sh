@@ -1,0 +1,94 @@
+#!/bin/bash
+MODEL_PATH=${MODEL_PATH:-/path/to/hf_models/Qwen/Qwen2.5-3B-Instruct}
+export MODEL=${MODEL:-$(basename "${MODEL_PATH}")}
+export VLLM_USE_V1=0
+export VLLM_ATTENTION_BACKEND=XFORMERS
+
+PROMPT_KEY=question
+GEN_BATCH_SIZE=256
+TRAIN_BATCH_SIZE=256
+PPO_MINI_BATCH_SIZE=128
+LR=1e-6
+MAX_PROMPT_LENGTH=695
+MAX_RESPONSE_LENGTH=6024
+USE_RE_CALL=True
+PROMPT_TEMPLATE_NAME=re_call_template_sys
+ACTOR_MODEL_PATH=${MODEL_PATH}
+ROLLOUT_NAME=vllm_with_tool
+REWARD_MANAGER=re_call
+ROLLOUT_N=5
+ROLLOUT_TP=2
+ROLLOUT_GPU_UTIL=0.7
+MAX_TURNS=5
+SEARCH_URL=${SEARCH_URL:-http://127.0.0.1:8000}
+SANDBOX_URL=${SANDBOX_URL:-/your/sandbox/url}
+PROJECT_NAME=${PROJECT_NAME:-memsearcher}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-MemSearcher-nq+hotpotqa-$MODEL}
+NNODES=${WORLD_SIZE:-1}
+N_GPUS_PER_NODE=${N_GPUS_PER_NODE:-8}
+SAVE_FREQ=20
+TEST_FREQ=-1
+TOTAL_EPOCHS=1
+LOGGER=${LOGGER:-'[console,tensorboard]'}
+SAVE_PATH=${SAVE_PATH:-checkpoints/${EXPERIMENT_NAME}}
+TRAIN_FILES=${TRAIN_FILES:-data/nq+hotpotqa_train_converted.parquet}
+TEST_FILES=${TEST_FILES:-${TRAIN_FILES}}
+CHECKPOINT_SAVE=$SAVE_PATH
+
+ROLLOUT_SAVE_PATH=$SAVE_PATH/rollout
+if [ ! -d "$ROLLOUT_SAVE_PATH" ]; then
+    mkdir -p $ROLLOUT_SAVE_PATH
+fi
+
+python3 -m verl.trainer.main_ppo \
+    algorithm.adv_estimator=grpo \
+    algorithm.kl_ctrl.kl_coef=0.001 \
+    data.train_files="$TRAIN_FILES" \
+    data.val_files="$TEST_FILES" \
+    data.prompt_key=${PROMPT_KEY} \
+    data.gen_batch_size=${GEN_BATCH_SIZE} \
+    data.train_batch_size=${TRAIN_BATCH_SIZE} \
+    data.max_prompt_length=${MAX_PROMPT_LENGTH} \
+    data.max_response_length=${MAX_RESPONSE_LENGTH} \
+    data.use_re_call=${USE_RE_CALL} \
+    data.prompt_template_name=${PROMPT_TEMPLATE_NAME} \
+    data.search_url=${SEARCH_URL} \
+    data.filter_overlong_prompts=True \
+    actor_rollout_ref.model.path=${ACTOR_MODEL_PATH} \
+    actor_rollout_ref.model.enable_gradient_checkpointing=True \
+    actor_rollout_ref.model.use_remove_padding=True \
+    actor_rollout_ref.actor.optim.lr=${LR} \
+    actor_rollout_ref.actor.ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE} \
+    actor_rollout_ref.actor.use_dynamic_bsz=True \
+    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=$((2*(MAX_PROMPT_LENGTH+MAX_RESPONSE_LENGTH))) \
+    actor_rollout_ref.actor.use_kl_loss=True \
+    actor_rollout_ref.actor.kl_loss_coef=0.001 \
+    actor_rollout_ref.actor.kl_loss_type=low_var_kl \
+    actor_rollout_ref.actor.fsdp_config.param_offload=False \
+    actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
+    actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=$((4*(MAX_PROMPT_LENGTH+MAX_RESPONSE_LENGTH))) \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=${ROLLOUT_TP} \
+    actor_rollout_ref.rollout.name=${ROLLOUT_NAME} \
+    actor_rollout_ref.rollout.gpu_memory_utilization=${ROLLOUT_GPU_UTIL} \
+    actor_rollout_ref.rollout.n=${ROLLOUT_N} \
+    actor_rollout_ref.rollout.max_turns=${MAX_TURNS} \
+    actor_rollout_ref.rollout.sandbox_url=${SANDBOX_URL} \
+    actor_rollout_ref.rollout.enforce_eager=False \
+    actor_rollout_ref.rollout.free_cache_engine=False \
+    actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=$((4*(MAX_PROMPT_LENGTH+MAX_RESPONSE_LENGTH))) \
+    actor_rollout_ref.ref.fsdp_config.param_offload=True \
+    reward_model.reward_manager=${REWARD_MANAGER} \
+    trainer.critic_warmup=0 \
+    trainer.logger="${LOGGER}" \
+    trainer.project_name=${PROJECT_NAME} \
+    trainer.experiment_name=${EXPERIMENT_NAME} \
+    trainer.n_gpus_per_node=${N_GPUS_PER_NODE} \
+    trainer.nnodes=${NNODES} \
+    trainer.val_before_train=False \
+    trainer.save_freq=${SAVE_FREQ} \
+    trainer.test_freq=${TEST_FREQ} \
+    trainer.total_epochs=${TOTAL_EPOCHS} \
+    trainer.default_hdfs_dir=null \
+    trainer.default_local_dir=${SAVE_PATH} \
+    trainer.rollout_save_path=${ROLLOUT_SAVE_PATH} \
+    hydra.run.dir=$CHECKPOINT_SAVE/outputs | tee $CHECKPOINT_SAVE/run.log

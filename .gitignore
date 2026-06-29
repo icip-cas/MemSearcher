@@ -1,0 +1,57 @@
+# byte-compiled / build
+__pycache__/
+*.py[cod]
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# editors / OS
+.vscode
+.idea
+.DS_Store
+
+# experiment outputs / logs (do NOT commit)
+wandb/
+tensorboard_log/
+*.log
+outputs/
+output/
+checkpoints/
+eval/
+scripts/serving/output/
+scripts/evaluation/output/
+scripts/evaluation/data/
+
+# large artifacts
+*.whl
+*.pdf
+*.index
+*.faiss
+
+# datasets: downloaded benchmarks + generated parquet (do NOT commit)
+data/*/train.jsonl
+data/*/dev.jsonl
+data/*/test.jsonl
+data/*/*.parquet
+data/*/train.parquet
+
+# misc
+.env
+notebooks/
+uv.lock
+
+# large training parquet — regenerate via data/prepare_train_data.py (see README)
+data/nq+hotpotqa_train_converted.parquet
+data/nq_hotpotqa/
